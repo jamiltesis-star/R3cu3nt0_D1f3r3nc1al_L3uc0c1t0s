@@ -23,6 +23,8 @@
 
   <button onclick="tomarImagen()">Tomar imagen</button>
   <button onclick="enviarImagenes()">Enviar imágenes</button>
+  <button onclick="cambiarCamara()">Cambiar cámara</button>
+  <span id="cameraLabel" style="margin-left:8px; font-weight:normal;">Cámara: —</span>
 
   <br><br>
 
@@ -43,15 +45,83 @@
 
     const URL_GAS = "https://script.google.com/macros/s/AKfycbwsC-K5w5HzlL9ByQ4fwWUUjS0HviZgmstrZnY4tBjNYp7KfnQ9qSxpYl_pxog6fLkQ/exec";
 
-    function abrirCamara() {
-      navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } }
-      })
+    // Lista de cámaras y estado actual
+    let dispositivosVideo = [];
+    let currentDeviceIndex = 0;
+
+    function stopStream() {
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+        video.srcObject = null;
+      }
+    }
+
+    function abrirCamara(deviceId) {
+      // Detener stream actual si existe
+      stopStream();
+
+      const constraints = deviceId
+        ? { video: { deviceId: { exact: deviceId } } }
+        : { video: { facingMode: { ideal: "environment" } } };
+
+      return navigator.mediaDevices.getUserMedia(constraints)
         .then(s => {
           stream = s;
           video.srcObject = stream;
+
+          // Actualizar lista de dispositivos (ahora que hay permiso se ven las etiquetas)
+          return navigator.mediaDevices.enumerateDevices().then(devs => {
+            dispositivosVideo = devs.filter(d => d.kind === 'videoinput');
+
+            // Intentar identificar la cámara actual por deviceId
+            if (stream && stream.getVideoTracks && stream.getVideoTracks().length) {
+              const track = stream.getVideoTracks()[0];
+              const settings = track.getSettings ? track.getSettings() : {};
+              const currentId = settings.deviceId;
+              const idx = dispositivosVideo.findIndex(d => d.deviceId === currentId);
+              if (idx !== -1) currentDeviceIndex = idx;
+            }
+
+            updateCameraLabel();
+          });
         })
-        .catch(() => alert("No se pudo abrir la cámara"));
+        .catch(err => {
+          console.error(err);
+          alert("No se pudo abrir la cámara");
+        });
+    }
+
+    function listarDispositivos() {
+      return navigator.mediaDevices.enumerateDevices()
+        .then(devs => {
+          dispositivosVideo = devs.filter(d => d.kind === 'videoinput');
+          updateCameraLabel();
+        })
+        .catch(err => {
+          console.error('Error listando dispositivos', err);
+        });
+    }
+
+    function updateCameraLabel() {
+      const el = document.getElementById('cameraLabel');
+      if (!el) return;
+      if (dispositivosVideo.length === 0) {
+        el.textContent = 'Cámara: no detectada';
+      } else {
+        const d = dispositivosVideo[currentDeviceIndex] || dispositivosVideo[0];
+        el.textContent = 'Cámara: ' + (d.label || `Dispositivo ${currentDeviceIndex + 1}`);
+      }
+    }
+
+    function cambiarCamara() {
+      if (dispositivosVideo.length <= 1) {
+        alert('No hay otras cámaras disponibles');
+        return;
+      }
+      currentDeviceIndex = (currentDeviceIndex + 1) % dispositivosVideo.length;
+      const deviceId = dispositivosVideo[currentDeviceIndex].deviceId;
+      abrirCamara(deviceId);
     }
 
     function tomarImagen() {
@@ -130,9 +200,15 @@
       });
     }
 
-    // Auto-start camera (se abre al cargar la página)
-    abrirCamara();
+    // Inicialización: listar dispositivos primero y abrir cámara
+    listarDispositivos()
+      .then(() => abrirCamara())
+      .catch(() => {
+        // intentar abrir cámara de todos modos
+        abrirCamara();
+      });
   </script>
 
 </body>
 </html>
+
