@@ -44,7 +44,9 @@
     const URL_GAS = "https://script.google.com/macros/s/AKfycbwsC-K5w5HzlL9ByQ4fwWUUjS0HviZgmstrZnY4tBjNYp7KfnQ9qSxpYl_pxog6fLkQ/exec";
 
     function abrirCamara() {
-      navigator.mediaDevices.getUserMedia({ video: true })
+      navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } }
+      })
         .then(s => {
           stream = s;
           video.srcObject = stream;
