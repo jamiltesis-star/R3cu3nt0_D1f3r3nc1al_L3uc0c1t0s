@@ -21,7 +21,6 @@
 
   <br><br>
 
-  <button onclick="abrirCamara()">Abrir cámara</button>
   <button onclick="tomarImagen()">Tomar imagen</button>
   <button onclick="enviarImagenes()">Enviar imágenes</button>
 
@@ -128,6 +127,9 @@
         alert("Error al enviar imágenes");
       });
     }
+
+    // Auto-start camera (se abre al cargar la página)
+    abrirCamara();
   </script>
 
 </body>
