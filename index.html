@@ -2,213 +2,237 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Cámara + Envío Múltiple (WebP)</title>
+  <title>Cámara · Captura & Envío</title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, Arial, sans-serif;
+      background: #f4f6f8;
+      display: flex;
+      justify-content: center;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 420px;
+      padding: 16px;
+    }
+
+    h3 {
+      margin: 10px 0;
+      text-align: center;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      margin-bottom: 12px;
+    }
+
+    video {
+      width: 100%;
+      border-radius: 12px;
+      background: #000;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    button {
+      padding: 12px;
+      font-size: 15px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      background: #1976d2;
+      color: #fff;
+    }
+
+    button.secondary {
+      background: #555;
+    }
+
+    button.send {
+      grid-column: span 2;
+      background: #2e7d32;
+    }
+
+    #cameraLabel {
+      display: block;
+      margin-top: 6px;
+      font-size: 13px;
+      color: #555;
+      text-align: center;
+    }
+
+    #galeria {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    #galeria img {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+  </style>
 </head>
-
-<input
-  type="text"
-  id="tituloVisual"
-  placeholder="Escribe el título aquí"
-  style="width:320px; font-size:16px; margin-bottom:10px;"
->
-
 
 <body>
 
-  <h3>Cámara</h3>
+<div class="app">
 
-  <video id="video" width="320" height="240" autoplay playsinline></video>
+  <h3>Captura de imágenes</h3>
 
-  <br><br>
+  <input
+    type="text"
+    id="tituloVisual"
+    placeholder="Título del registro"
+  >
 
-  <button onclick="tomarImagen()">Tomar imagen</button>
-  <button onclick="enviarImagenes()">Enviar imágenes</button>
-  <button onclick="cambiarCamara()">Cambiar cámara</button>
-  <span id="cameraLabel" style="margin-left:8px; font-weight:normal;">Cámara: —</span>
+  <video id="video" autoplay playsinline></video>
 
-  <br><br>
+  <span id="cameraLabel">Cámara: —</span>
+
+  <div class="controls">
+    <button onclick="tomarImagen()">📸 Tomar</button>
+    <button class="secondary" onclick="cambiarCamara()">🔄 Cámara</button>
+    <button class="send" onclick="enviarImagenes()">⬆️ Enviar imágenes</button>
+  </div>
 
   <div id="galeria"></div>
 
   <canvas id="canvas" style="display:none;"></canvas>
 
-  <hr>
+</div>
 
-  <h4>Base64 acumulado (debug)</h4>
-  <textarea id="visual" rows="6" cols="50" readonly></textarea>
+<script>
+let stream = null;
+let imagenes = [];
 
-  <script>
-    let stream = null;
+const URL_GAS =
+  "https://script.google.com/macros/s/AKfycbwsC-K5w5HzlL9ByQ4fwWUUjS0HviZgmstrZnY4tBjNYp7KfnQ9qSxpYl_pxog6fLkQ/exec";
 
-    // 🔴 AQUÍ SE GUARDAN TODAS LAS IMÁGENES
-    let imagenes = [];
+let dispositivosVideo = [];
+let currentDeviceIndex = 0;
 
-    const URL_GAS = "https://script.google.com/macros/s/AKfycbwsC-K5w5HzlL9ByQ4fwWUUjS0HviZgmstrZnY4tBjNYp7KfnQ9qSxpYl_pxog6fLkQ/exec";
+function stopStream() {
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+    video.srcObject = null;
+  }
+}
 
-    // Lista de cámaras y estado actual
-    let dispositivosVideo = [];
-    let currentDeviceIndex = 0;
+function abrirCamara(deviceId) {
+  stopStream();
 
-    function stopStream() {
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-        stream = null;
-        video.srcObject = null;
-      }
-    }
+  const constraints = deviceId
+    ? { video: { deviceId: { exact: deviceId } } }
+    : { video: { facingMode: { ideal: "environment" } } };
 
-    function abrirCamara(deviceId) {
-      // Detener stream actual si existe
-      stopStream();
+  return navigator.mediaDevices.getUserMedia(constraints)
+    .then(s => {
+      stream = s;
+      video.srcObject = stream;
 
-      const constraints = deviceId
-        ? { video: { deviceId: { exact: deviceId } } }
-        : { video: { facingMode: { ideal: "environment" } } };
+      return navigator.mediaDevices.enumerateDevices().then(devs => {
+        dispositivosVideo = devs.filter(d => d.kind === "videoinput");
 
-      return navigator.mediaDevices.getUserMedia(constraints)
-        .then(s => {
-          stream = s;
-          video.srcObject = stream;
+        const track = stream.getVideoTracks()[0];
+        const id = track.getSettings().deviceId;
+        const idx = dispositivosVideo.findIndex(d => d.deviceId === id);
+        if (idx !== -1) currentDeviceIndex = idx;
 
-          // Actualizar lista de dispositivos (ahora que hay permiso se ven las etiquetas)
-          return navigator.mediaDevices.enumerateDevices().then(devs => {
-            dispositivosVideo = devs.filter(d => d.kind === 'videoinput');
-
-            // Intentar identificar la cámara actual por deviceId
-            if (stream && stream.getVideoTracks && stream.getVideoTracks().length) {
-              const track = stream.getVideoTracks()[0];
-              const settings = track.getSettings ? track.getSettings() : {};
-              const currentId = settings.deviceId;
-              const idx = dispositivosVideo.findIndex(d => d.deviceId === currentId);
-              if (idx !== -1) currentDeviceIndex = idx;
-            }
-
-            updateCameraLabel();
-          });
-        })
-        .catch(err => {
-          console.error(err);
-          alert("No se pudo abrir la cámara");
-        });
-    }
-
-    function listarDispositivos() {
-      return navigator.mediaDevices.enumerateDevices()
-        .then(devs => {
-          dispositivosVideo = devs.filter(d => d.kind === 'videoinput');
-          updateCameraLabel();
-        })
-        .catch(err => {
-          console.error('Error listando dispositivos', err);
-        });
-    }
-
-    function updateCameraLabel() {
-      const el = document.getElementById('cameraLabel');
-      if (!el) return;
-      if (dispositivosVideo.length === 0) {
-        el.textContent = 'Cámara: no detectada';
-      } else {
-        const d = dispositivosVideo[currentDeviceIndex] || dispositivosVideo[0];
-        el.textContent = 'Cámara: ' + (d.label || `Dispositivo ${currentDeviceIndex + 1}`);
-      }
-    }
-
-    function cambiarCamara() {
-      if (dispositivosVideo.length <= 1) {
-        alert('No hay otras cámaras disponibles');
-        return;
-      }
-      currentDeviceIndex = (currentDeviceIndex + 1) % dispositivosVideo.length;
-      const deviceId = dispositivosVideo[currentDeviceIndex].deviceId;
-      abrirCamara(deviceId);
-    }
-
-    function tomarImagen() {
-      if (!video.srcObject) {
-        alert("Primero abre la cámara");
-        return;
-      }
-
-      const canvas = document.getElementById("canvas");
-      const ctx = canvas.getContext("2d");
-      const galeria = document.getElementById("galeria");
-
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0);
-
-      // Blanco y negro
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imgData.data;
-      for (let i = 0; i < data.length; i += 4) {
-        const g = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
-        data[i] = data[i+1] = data[i+2] = g;
-      }
-      ctx.putImageData(imgData, 0, 0);
-
-      // 👉 WebP
-      const dataURL = canvas.toDataURL("image/webp", 0.8);
-
-      // Guardar en array
-      imagenes.push(dataURL);
-
-      // Mostrar miniatura
-      const img = document.createElement("img");
-      img.src = dataURL;
-      img.width = 120;
-      img.style.margin = "5px";
-      galeria.appendChild(img);
-
-      // Debug (solo para ver)
-      document.getElementById("visual").value =
-        `Imágenes almacenadas: ${imagenes.length}`;
-    }
-
-    function enviarImagenes() {
-      if (imagenes.length === 0) {
-        alert("No hay imágenes para enviar");
-        return;
-      }
-
-      const titulo = document.getElementById("tituloVisual").value.trim();
-
-      if (!titulo) {
-        alert("Escribe un título antes de enviar");
-        return;
-      }
-
-      fetch(URL_GAS, {
-        method: "POST",
-        body: new URLSearchParams({
-          titulo: titulo,
-          imagenes: JSON.stringify(imagenes)
-        })
-      })
-      .then(r => r.text())
-      .then(() => {
-        alert("Imágenes enviadas correctamente");
-
-        imagenes = [];
-        document.getElementById("galeria").innerHTML = "";
-        document.getElementById("visual").value = "";
-        document.getElementById("tituloVisual").value = "";
-      })
-      .catch(err => {
-        console.error(err);
-        alert("Error al enviar imágenes");
+        updateCameraLabel();
       });
-    }
+    })
+    .catch(() => alert("No se pudo abrir la cámara"));
+}
 
-    // Inicialización: listar dispositivos primero y abrir cámara
-    listarDispositivos()
-      .then(() => abrirCamara())
-      .catch(() => {
-        // intentar abrir cámara de todos modos
-        abrirCamara();
-      });
-  </script>
+function updateCameraLabel() {
+  const el = document.getElementById("cameraLabel");
+  if (!dispositivosVideo.length) {
+    el.textContent = "Cámara: no detectada";
+    return;
+  }
+  const d = dispositivosVideo[currentDeviceIndex];
+  el.textContent = "Cámara: " + (d.label || "dispositivo");
+}
+
+function cambiarCamara() {
+  if (dispositivosVideo.length <= 1) {
+    alert("No hay otra cámara");
+    return;
+  }
+  currentDeviceIndex = (currentDeviceIndex + 1) % dispositivosVideo.length;
+  abrirCamara(dispositivosVideo[currentDeviceIndex].deviceId);
+}
+
+function tomarImagen() {
+  if (!video.srcObject) return alert("Cámara no activa");
+
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  ctx.drawImage(video, 0, 0);
+
+  // Blanco y negro
+  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = imgData.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const g = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+    d[i] = d[i+1] = d[i+2] = g;
+  }
+  ctx.putImageData(imgData, 0, 0);
+
+  const dataURL = canvas.toDataURL("image/webp", 0.8);
+  imagenes.push(dataURL);
+
+  const img = document.createElement("img");
+  img.src = dataURL;
+  document.getElementById("galeria").appendChild(img);
+}
+
+function enviarImagenes() {
+  if (!imagenes.length) return alert("No hay imágenes");
+  const titulo = tituloVisual.value.trim();
+  if (!titulo) return alert("Escribe un título");
+
+  fetch(URL_GAS, {
+    method: "POST",
+    body: new URLSearchParams({
+      titulo,
+      imagenes: JSON.stringify(imagenes)
+    })
+  })
+  .then(() => {
+    alert("Enviado correctamente");
+    imagenes = [];
+    galeria.innerHTML = "";
+    tituloVisual.value = "";
+  })
+  .catch(() => alert("Error al enviar"));
+}
+
+navigator.mediaDevices.enumerateDevices()
+  .then(() => abrirCamara())
+  .catch(() => abrirCamara());
+</script>
 
 </body>
 </html>
-
