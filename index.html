@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <title>Cámara · Captura & Envío</title>
-
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
@@ -22,11 +21,10 @@
     }
 
     h3 {
-      margin: 10px 0;
       text-align: center;
     }
 
-    input[type="text"] {
+    input {
       width: 100%;
       padding: 10px;
       font-size: 16px;
@@ -38,7 +36,7 @@
     video {
       width: 100%;
       border-radius: 12px;
-      background: #000;
+      background: black;
     }
 
     .controls {
@@ -50,12 +48,12 @@
 
     button {
       padding: 12px;
-      font-size: 15px;
-      border: none;
       border-radius: 10px;
-      cursor: pointer;
+      border: none;
+      font-size: 15px;
+      color: white;
       background: #1976d2;
-      color: #fff;
+      cursor: pointer;
     }
 
     button.secondary {
@@ -67,12 +65,9 @@
       background: #2e7d32;
     }
 
-    #cameraLabel {
-      display: block;
-      margin-top: 6px;
-      font-size: 13px;
-      color: #555;
-      text-align: center;
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
 
     #galeria {
@@ -87,6 +82,14 @@
       border-radius: 8px;
       border: 1px solid #ccc;
     }
+
+    #cameraLabel {
+      display: block;
+      text-align: center;
+      font-size: 13px;
+      color: #555;
+      margin-top: 6px;
+    }
   </style>
 </head>
 
@@ -96,26 +99,22 @@
 
   <h3>Captura de imágenes</h3>
 
-  <input
-    type="text"
-    id="tituloVisual"
-    placeholder="Nombre del Paciente"
-  >
+  <input id="tituloVisual" placeholder="Nombre del Paciente">
 
   <video id="video" autoplay playsinline></video>
-
   <span id="cameraLabel">Cámara: —</span>
 
   <div class="controls">
-    <button onclick="tomarImagen()">📸 Capturar</button>
+    <button onclick="tomarImagen()">📸 Tomar</button>
     <button class="secondary" onclick="cambiarCamara()">🔄 Cámara</button>
-    <button class="send" onclick="enviarImagenes()">⬆️ Enviar imágenes</button>
+    <button id="btnEnviar" class="send" disabled onclick="enviarImagenes()">
+      ⬆️ Enviar imágenes
+    </button>
   </div>
 
   <div id="galeria"></div>
 
   <canvas id="canvas" style="display:none;"></canvas>
-
 </div>
 
 <script>
@@ -125,15 +124,21 @@ let imagenes = [];
 const URL_GAS =
   "https://script.google.com/macros/s/AKfycbylBYf_wEG7Uu6ode7E8p7sXkheeoSHiMYotA6RZyS6z6g-mDCwA4-A8Erb6KJ3XYfx/exec";
 
+const sendBtn = document.getElementById("btnEnviar");
+const tituloInput = document.getElementById("tituloVisual");
+const galeria = document.getElementById("galeria");
+
 let dispositivosVideo = [];
 let currentDeviceIndex = 0;
 
+tituloInput.addEventListener("input", validarEnvio);
+
+function validarEnvio() {
+  sendBtn.disabled = !(imagenes.length > 0 && tituloInput.value.trim());
+}
+
 function stopStream() {
-  if (stream) {
-    stream.getTracks().forEach(t => t.stop());
-    stream = null;
-    video.srcObject = null;
-  }
+  if (stream) stream.getTracks().forEach(t => t.stop());
 }
 
 function abrirCamara(deviceId) {
@@ -141,49 +146,31 @@ function abrirCamara(deviceId) {
 
   const constraints = deviceId
     ? { video: { deviceId: { exact: deviceId } } }
-    : { video: { facingMode: { ideal: "environment" } } };
+    : { video: { facingMode: "environment" } };
 
-  return navigator.mediaDevices.getUserMedia(constraints)
-    .then(s => {
-      stream = s;
-      video.srcObject = stream;
+  navigator.mediaDevices.getUserMedia(constraints).then(s => {
+    stream = s;
+    video.srcObject = stream;
 
-      return navigator.mediaDevices.enumerateDevices().then(devs => {
-        dispositivosVideo = devs.filter(d => d.kind === "videoinput");
-
-        const track = stream.getVideoTracks()[0];
-        const id = track.getSettings().deviceId;
-        const idx = dispositivosVideo.findIndex(d => d.deviceId === id);
-        if (idx !== -1) currentDeviceIndex = idx;
-
-        updateCameraLabel();
-      });
-    })
-    .catch(() => alert("No se pudo abrir la cámara"));
+    navigator.mediaDevices.enumerateDevices().then(devs => {
+      dispositivosVideo = devs.filter(d => d.kind === "videoinput");
+      updateCameraLabel();
+    });
+  });
 }
 
 function updateCameraLabel() {
-  const el = document.getElementById("cameraLabel");
-  if (!dispositivosVideo.length) {
-    el.textContent = "Cámara: no detectada";
-    return;
-  }
-  const d = dispositivosVideo[currentDeviceIndex];
-  el.textContent = "Cámara: " + (d.label || "dispositivo");
+  if (!dispositivosVideo.length) return;
+  cameraLabel.textContent = "Cámara: " + (dispositivosVideo[currentDeviceIndex].label || "dispositivo");
 }
 
 function cambiarCamara() {
-  if (dispositivosVideo.length <= 1) {
-    alert("No hay otra cámara");
-    return;
-  }
+  if (dispositivosVideo.length <= 1) return;
   currentDeviceIndex = (currentDeviceIndex + 1) % dispositivosVideo.length;
   abrirCamara(dispositivosVideo[currentDeviceIndex].deviceId);
 }
 
 function tomarImagen() {
-  if (!video.srcObject) return alert("Cámara no activa");
-
   const canvas = document.getElementById("canvas");
   const ctx = canvas.getContext("2d");
 
@@ -191,7 +178,6 @@ function tomarImagen() {
   canvas.height = video.videoHeight;
   ctx.drawImage(video, 0, 0);
 
-  // Blanco y negro
   const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const d = imgData.data;
   for (let i = 0; i < d.length; i += 4) {
@@ -205,18 +191,19 @@ function tomarImagen() {
 
   const img = document.createElement("img");
   img.src = dataURL;
-  document.getElementById("galeria").appendChild(img);
+  galeria.appendChild(img);
+
+  validarEnvio();
 }
 
 function enviarImagenes() {
-  if (!imagenes.length) return alert("No hay imágenes");
-  const titulo = tituloVisual.value.trim();
-  if (!titulo) return alert("Escribe un título");
+  sendBtn.disabled = true;
+  sendBtn.textContent = "Enviando...";
 
   fetch(URL_GAS, {
     method: "POST",
     body: new URLSearchParams({
-      titulo,
+      titulo: tituloInput.value.trim(),
       imagenes: JSON.stringify(imagenes)
     })
   })
@@ -224,9 +211,13 @@ function enviarImagenes() {
     alert("Enviado correctamente");
     imagenes = [];
     galeria.innerHTML = "";
-    tituloVisual.value = "";
+    tituloInput.value = "";
+    sendBtn.textContent = "⬆️ Enviar imágenes";
   })
-  .catch(() => alert("Error al enviar"));
+  .catch(() => {
+    alert("Error al enviar");
+    sendBtn.disabled = false;
+  });
 }
 
 navigator.mediaDevices.enumerateDevices()
