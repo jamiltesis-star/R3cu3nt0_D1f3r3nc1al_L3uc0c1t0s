@@ -99,7 +99,7 @@
   <input
     type="text"
     id="tituloVisual"
-    placeholder="Título del registro"
+    placeholder="Nombre del Paciente"
   >
 
   <video id="video" autoplay playsinline></video>
@@ -107,7 +107,7 @@
   <span id="cameraLabel">Cámara: —</span>
 
   <div class="controls">
-    <button onclick="tomarImagen()">📸 Tomar</button>
+    <button onclick="tomarImagen()">📸 Capturar</button>
     <button class="secondary" onclick="cambiarCamara()">🔄 Cámara</button>
     <button class="send" onclick="enviarImagenes()">⬆️ Enviar imágenes</button>
   </div>
@@ -123,7 +123,7 @@ let stream = null;
 let imagenes = [];
 
 const URL_GAS =
-  "https://script.google.com/macros/s/AKfycbwsC-K5w5HzlL9ByQ4fwWUUjS0HviZgmstrZnY4tBjNYp7KfnQ9qSxpYl_pxog6fLkQ/exec";
+  "https://script.google.com/macros/s/AKfycbylBYf_wEG7Uu6ode7E8p7sXkheeoSHiMYotA6RZyS6z6g-mDCwA4-A8Erb6KJ3XYfx/exec";
 
 let dispositivosVideo = [];
 let currentDeviceIndex = 0;
