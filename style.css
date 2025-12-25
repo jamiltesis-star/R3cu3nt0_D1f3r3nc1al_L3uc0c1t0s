@@ -1,0 +1,97 @@
+/* Estilo general de la página */
+body {
+  margin: 0;
+  font-family: system-ui, Arial, sans-serif;
+  background: #f4f6f8;
+  display: flex;
+  justify-content: center;
+}
+
+/* Contenedor principal de la app */
+.app {
+  width: 100%;
+  max-width: 420px;
+  padding: 16px;
+}
+
+/* Título */
+h3 {
+  text-align: center;
+}
+
+/* Campo de texto */
+input {
+  width: 100%;
+  padding: 10px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  margin-bottom: 12px;
+}
+
+/* Vista de la cámara */
+video {
+  width: 100%;
+  border-radius: 12px;
+  background: black;
+}
+
+/* Contenedor de botones */
+.controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* Botones generales */
+button {
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  font-size: 15px;
+  color: white;
+  background: #1976d2;
+  cursor: pointer;
+}
+
+/* Botón secundario */
+button.secondary {
+  background: #555;
+}
+
+/* Botón de envío (ocupa toda la fila) */
+button.send {
+  grid-column: span 2;
+  background: #2e7d32;
+}
+
+/* Botón deshabilitado */
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Galería de imágenes */
+#galeria {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* Imágenes dentro de la galería */
+#galeria img {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+/* Etiqueta de cámara activa */
+#cameraLabel {
+  display: block;
+  text-align: center;
+  font-size: 13px;
+  color: #555;
+  margin-top: 6px;
+}
