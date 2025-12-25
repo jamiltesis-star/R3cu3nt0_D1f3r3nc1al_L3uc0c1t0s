@@ -5,225 +5,46 @@
   <title>Cámara · Captura & Envío</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <style>
-    body {
-      margin: 0;
-      font-family: system-ui, Arial, sans-serif;
-      background: #f4f6f8;
-      display: flex;
-      justify-content: center;
-    }
-
-    .app {
-      width: 100%;
-      max-width: 420px;
-      padding: 16px;
-    }
-
-    h3 {
-      text-align: center;
-    }
-
-    input {
-      width: 100%;
-      padding: 10px;
-      font-size: 16px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      margin-bottom: 12px;
-    }
-
-    video {
-      width: 100%;
-      border-radius: 12px;
-      background: black;
-    }
-
-    .controls {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-top: 12px;
-    }
-
-    button {
-      padding: 12px;
-      border-radius: 10px;
-      border: none;
-      font-size: 15px;
-      color: white;
-      background: #1976d2;
-      cursor: pointer;
-    }
-
-    button.secondary {
-      background: #555;
-    }
-
-    button.send {
-      grid-column: span 2;
-      background: #2e7d32;
-    }
-
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    #galeria {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-      gap: 8px;
-      margin-top: 14px;
-    }
-
-    #galeria img {
-      width: 100%;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-    }
-
-    #cameraLabel {
-      display: block;
-      text-align: center;
-      font-size: 13px;
-      color: #555;
-      margin-top: 6px;
-    }
-  </style>
+  <!-- Hoja de estilos (GUI / apariencia visual) -->
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
 <div class="app">
 
+  <!-- Título principal -->
   <h3>Captura de imágenes</h3>
 
+  <!-- Entrada de texto para el nombre del paciente -->
   <input id="tituloVisual" placeholder="Nombre del Paciente">
 
+  <!-- Vista de la cámara -->
   <video id="video" autoplay playsinline></video>
+
+  <!-- Etiqueta que muestra la cámara activa -->
   <span id="cameraLabel">Cámara: —</span>
 
+  <!-- Botonera de control -->
   <div class="controls">
     <button onclick="tomarImagen()">📸 Tomar</button>
     <button class="secondary" onclick="cambiarCamara()">🔄 Cámara</button>
+
+    <!-- Botón de envío (inicia deshabilitado) -->
     <button id="btnEnviar" class="send" disabled onclick="enviarImagenes()">
       ⬆️ Enviar imágenes
     </button>
   </div>
 
+  <!-- Galería de imágenes capturadas -->
   <div id="galeria"></div>
 
+  <!-- Canvas oculto usado para capturar y procesar la imagen -->
   <canvas id="canvas" style="display:none;"></canvas>
 </div>
 
-<script>
-let stream = null;
-let imagenes = [];
-
-const URL_GAS =
-  "https://script.google.com/macros/s/AKfycbylBYf_wEG7Uu6ode7E8p7sXkheeoSHiMYotA6RZyS6z6g-mDCwA4-A8Erb6KJ3XYfx/exec";
-
-const sendBtn = document.getElementById("btnEnviar");
-const tituloInput = document.getElementById("tituloVisual");
-const galeria = document.getElementById("galeria");
-
-let dispositivosVideo = [];
-let currentDeviceIndex = 0;
-
-tituloInput.addEventListener("input", validarEnvio);
-
-function validarEnvio() {
-  sendBtn.disabled = !(imagenes.length > 0 && tituloInput.value.trim());
-}
-
-function stopStream() {
-  if (stream) stream.getTracks().forEach(t => t.stop());
-}
-
-function abrirCamara(deviceId) {
-  stopStream();
-
-  const constraints = deviceId
-    ? { video: { deviceId: { exact: deviceId } } }
-    : { video: { facingMode: "environment" } };
-
-  navigator.mediaDevices.getUserMedia(constraints).then(s => {
-    stream = s;
-    video.srcObject = stream;
-
-    navigator.mediaDevices.enumerateDevices().then(devs => {
-      dispositivosVideo = devs.filter(d => d.kind === "videoinput");
-      updateCameraLabel();
-    });
-  });
-}
-
-function updateCameraLabel() {
-  if (!dispositivosVideo.length) return;
-  cameraLabel.textContent = "Cámara: " + (dispositivosVideo[currentDeviceIndex].label || "dispositivo");
-}
-
-function cambiarCamara() {
-  if (dispositivosVideo.length <= 1) return;
-  currentDeviceIndex = (currentDeviceIndex + 1) % dispositivosVideo.length;
-  abrirCamara(dispositivosVideo[currentDeviceIndex].deviceId);
-}
-
-function tomarImagen() {
-  const canvas = document.getElementById("canvas");
-  const ctx = canvas.getContext("2d");
-
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  ctx.drawImage(video, 0, 0);
-
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const d = imgData.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const g = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
-    d[i] = d[i+1] = d[i+2] = g;
-  }
-  ctx.putImageData(imgData, 0, 0);
-
-  const dataURL = canvas.toDataURL("image/webp", 0.8);
-  imagenes.push(dataURL);
-
-  const img = document.createElement("img");
-  img.src = dataURL;
-  galeria.appendChild(img);
-
-  validarEnvio();
-}
-
-function enviarImagenes() {
-  sendBtn.disabled = true;
-  sendBtn.textContent = "Enviando...";
-
-  fetch(URL_GAS, {
-    method: "POST",
-    body: new URLSearchParams({
-      titulo: tituloInput.value.trim(),
-      imagenes: JSON.stringify(imagenes)
-    })
-  })
-  .then(() => {
-    alert("Enviado correctamente");
-    imagenes = [];
-    galeria.innerHTML = "";
-    tituloInput.value = "";
-    sendBtn.textContent = "⬆️ Enviar imágenes";
-  })
-  .catch(() => {
-    alert("Error al enviar");
-    sendBtn.disabled = false;
-  });
-}
-
-navigator.mediaDevices.enumerateDevices()
-  .then(() => abrirCamara())
-  .catch(() => abrirCamara());
-</script>
+<!-- Lógica de la aplicación -->
+<script src="script.js"></script>
 
 </body>
 </html>
